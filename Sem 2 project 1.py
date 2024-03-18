@@ -51,14 +51,14 @@ def show_enrollment_frame(master, conn):
         frame.pack(pady=10)
         tk.Label(frame, text=label_text, font=("Arial", 14)).pack(side="left", padx=(10, 5))
         if label_text == "Gender:":
-            entry = ttk.Combobox(frame, values=["Male", "Female", "Other"], font=("Arial", 14), width=width)
+            entry = ttk.Combobox(frame, values=["Male", "Female", "Other"], font=("Arial", 14), width=width, state='readonly')
         elif label_text == "Course:":
-            entry = ttk.Combobox(frame, values=["Data Science", "Machine Learning", "Artificial Intelligence"], font=("Arial", 14), width=width)
+            entry = ttk.Combobox(frame, values=["Data Science", "Machine Learning", "Artificial Intelligence"], font=("Arial", 14), width=width, state='readonly')
         elif label_text == "Candidate Phone:":
-            entry = tk.Entry(frame, font=("Arial", 14), width=width)
+            entry = ttk.Entry(frame, font=("Arial", 14), width=width)
             entry.config(validate="key", validatecommand=(entry.register(validate_phone), "%P"))
         else:
-            entry = tk.Entry(frame, font=("Arial", 14), width=width)
+            entry = ttk.Entry(frame, font=("Arial", 14), width=width)
         entry.pack(side="left", padx=(0, 10))
         student_entries.append(entry)
 
@@ -100,4 +100,67 @@ def enroll(conn, student_entries):
 
         # Show message box if 8 entries have been entered
         if len(cursor.execute("SELECT * FROM students").fetchall()) == 8:
-            messagebox.showinfo("Enrollment Complete"), 
+            messagebox.showinfo("Enrollment Complete", "8 entries have been entered. Showing top 3 students with highest percentage.")
+            # Show top 3 students
+            show_top_students(conn)
+
+        # Clear entry fields
+        reset_entries(student_entries)
+
+    except ValueError:
+        messagebox.showerror("Error", "Invalid input for percentage.")
+
+def reset_entries(student_entries):
+    for entry in student_entries:
+        entry.delete(0, "end")
+
+def show_enrolled_students_table(conn):
+    enrolled_students = conn.cursor().execute("SELECT * FROM students").fetchall()
+
+    if not enrolled_students:
+        messagebox.showinfo("Enrolled Students", "No students enrolled yet.")
+        return
+
+    # Create new window for displaying enrolled students in a table
+    enrolled_students_window = Toplevel()
+    enrolled_students_window.title("Enrolled Students")
+
+    # Create Treeview widget
+    tree = ttk.Treeview(enrolled_students_window, columns=('Name', 'Email', 'Phone', 'Age', 'Gender', 'DOB', 'Nationality', 'Qualification', 'Course', 'Percentage'), show='headings')
+    tree.pack(fill='both', expand=True)
+
+    # Set column headings
+    for col in ('Name', 'Email', 'Phone', 'Age', 'Gender', 'DOB', 'Nationality', 'Qualification', 'Course', 'Percentage'):
+        tree.heading(col, text=col)
+
+    # Insert data into the treeview
+    for student in enrolled_students:
+        tree.insert('', 'end', values=student)
+
+def show_top_students(conn):
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM students ORDER BY percentage DESC LIMIT 3")
+    selected_students = cursor.fetchall()
+
+    # Display selected students
+    selected_students_msg = "\n".join([f"{student[1]}: {student[10]}%" for student in selected_students])
+    messagebox.showinfo("Top 3 Students", f"Top 3 students with highest percentage:\n\n{selected_students_msg}")
+
+def main():
+    root = tk.Tk()
+    root.title("Course Enrollment App")
+    root.state("zoomed")
+
+    # Connect to the SQLite database
+    try:
+        conn = sqlite3.connect("enrollment.db")
+        create_table(conn)
+    except sqlite3.Error as e:
+        messagebox.showerror("Database Error", f"Failed to connect to database: {e}")
+        root.destroy()
+
+    show_enrollment_frame(root, conn)
+    root.mainloop()
+
+if __name__ == "__main__":
+    main()
